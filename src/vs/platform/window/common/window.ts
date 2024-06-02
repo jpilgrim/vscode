@@ -307,6 +307,11 @@ export interface IOpenFileRequest {
 	readonly filesToMerge?: IPathData[];
 }
 
+export interface IIsFileOpenRequest {
+	readonly fileUri: string;
+
+}
+
 /**
  * Additional context for the request on native only.
  */

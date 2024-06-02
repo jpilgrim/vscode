@@ -505,12 +505,12 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			// in case `openFilesInNewWindow` is enforced, we skip
 			// this step.
 			let windowToUseForFiles: ICodeWindow | undefined = undefined;
-			if (fileToCheck?.fileUri && !openFilesInNewWindow) {
+			if (fileToCheck?.fileUri && openFilesInNewWindow !== true) {
 				if (openConfig.context === OpenContext.DESKTOP || openConfig.context === OpenContext.CLI || openConfig.context === OpenContext.DOCK) {
 					windowToUseForFiles = await findWindowOnFile(windows, fileToCheck.fileUri, async workspace => workspace.configPath.scheme === Schemas.file ? this.workspacesManagementMainService.resolveLocalWorkspace(workspace.configPath) : undefined);
 				}
 
-				if (!windowToUseForFiles) {
+				if (!windowToUseForFiles && openFilesInNewWindow === false) {
 					windowToUseForFiles = this.doGetLastActiveWindow(windows);
 				}
 			}
@@ -1237,7 +1237,7 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		return { workspace: getSingleFolderWorkspaceIdentifier(uri), remoteAuthority };
 	}
 
-	private shouldOpenNewWindow(openConfig: IOpenConfiguration): { openFolderInNewWindow: boolean; openFilesInNewWindow: boolean } {
+	private shouldOpenNewWindow(openConfig: IOpenConfiguration): { openFolderInNewWindow: boolean; openFilesInNewWindow: boolean | 'reveal' } {
 
 		// let the user settings override how folders are open in a new window or same window unless we are forced
 		const windowConfig = this.configurationService.getValue<IWindowSettings | undefined>('window');
@@ -1250,7 +1250,7 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 		}
 
 		// let the user settings override how files are open in a new window or same window unless we are forced (not for extension development though)
-		let openFilesInNewWindow: boolean = false;
+		let openFilesInNewWindow: boolean | 'reveal' = false;
 		if (openConfig.forceNewWindow || openConfig.forceReuseWindow) {
 			openFilesInNewWindow = !!openConfig.forceNewWindow && !openConfig.forceReuseWindow;
 		} else {
@@ -1258,7 +1258,7 @@ export class WindowsMainService extends Disposable implements IWindowsMainServic
 			// macOS: by default we open files in a new window if this is triggered via DOCK context
 			if (isMacintosh) {
 				if (openConfig.context === OpenContext.DOCK) {
-					openFilesInNewWindow = true;
+					openFilesInNewWindow = 'reveal';
 				}
 			}
 

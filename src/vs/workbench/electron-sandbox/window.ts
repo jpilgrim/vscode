@@ -11,10 +11,10 @@ import { equals } from 'vs/base/common/objects';
 import { EventType, EventHelper, addDisposableListener, ModifierKeyEmitter, getActiveElement, hasWindow, getWindow, getWindowById, getWindows } from 'vs/base/browser/dom';
 import { Action, Separator, WorkbenchActionExecutedClassification, WorkbenchActionExecutedEvent } from 'vs/base/common/actions';
 import { IFileService } from 'vs/platform/files/common/files';
-import { EditorResourceAccessor, IUntitledTextResourceEditorInput, SideBySideEditor, pathsToEditors, IResourceDiffEditorInput, IUntypedEditorInput, IEditorPane, isResourceEditorInput, IResourceMergeEditorInput } from 'vs/workbench/common/editor';
+import { EditorResourceAccessor, IUntitledTextResourceEditorInput, SideBySideEditor, pathsToEditors, IResourceDiffEditorInput, IUntypedEditorInput, IEditorPane, isResourceEditorInput, IResourceMergeEditorInput, EditorsOrder } from 'vs/workbench/common/editor';
 import { IEditorService } from 'vs/workbench/services/editor/common/editorService';
 import { ITelemetryService } from 'vs/platform/telemetry/common/telemetry';
-import { WindowMinimumSize, IOpenFileRequest, IAddFoldersRequest, INativeRunActionInWindowRequest, INativeRunKeybindingInWindowRequest, INativeOpenFileRequest, hasNativeTitlebar } from 'vs/platform/window/common/window';
+import { WindowMinimumSize, IOpenFileRequest, IAddFoldersRequest, INativeRunActionInWindowRequest, INativeRunKeybindingInWindowRequest, INativeOpenFileRequest, hasNativeTitlebar, IIsFileOpenRequest } from 'vs/platform/window/common/window';
 import { ITitleService } from 'vs/workbench/services/title/browser/titleService';
 import { IWorkbenchThemeService } from 'vs/workbench/services/themes/common/workbenchThemeService';
 import { ApplyZoomTarget, applyZoom } from 'vs/platform/window/electron-sandbox/window';
@@ -210,6 +210,10 @@ export class NativeWindow extends BaseWindow {
 
 		// Support openFiles event for existing and new files
 		ipcRenderer.on('vscode:openFiles', (event: unknown, request: IOpenFileRequest) => { this.onOpenFiles(request); });
+
+		// Support isFileOpen event
+		ipcRenderer.on('vscode:isFileOpen', (event: unknown, request: IIsFileOpenRequest) => { this.onIsFileOpen(request); });
+
 
 		// Support addFolders event if we have a workspace opened
 		ipcRenderer.on('vscode:addFolders', (event: unknown, request: IAddFoldersRequest) => { this.onAddFoldersRequest(request); });
@@ -992,6 +996,16 @@ export class NativeWindow extends BaseWindow {
 		this.pendingFoldersToAdd = [];
 
 		this.workspaceEditingService.addFolders(foldersToAdd);
+	}
+
+	private async onIsFileOpen(request: IIsFileOpenRequest) {
+		const isOpen = this.editorService.getEditors(EditorsOrder.SEQUENTIAL).some(editor => {
+			if (editor.editor.resource?.toString() === request.fileUri) {
+				return true;
+			}
+			return false;
+		});
+		ipcRenderer.send('vscode:isFileOpenResult', isOpen);
 	}
 
 	private async onOpenFiles(request: INativeOpenFileRequest): Promise<void> {

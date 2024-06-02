@@ -3,12 +3,29 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { ipcMain } from 'electron';
 import { extUriBiasedIgnorePathCase } from 'vs/base/common/resources';
 import { URI } from 'vs/base/common/uri';
 import { ICodeWindow } from 'vs/platform/window/electron-main/window';
 import { IResolvedWorkspace, ISingleFolderWorkspaceIdentifier, isSingleFolderWorkspaceIdentifier, isWorkspaceIdentifier, IWorkspaceIdentifier } from 'vs/platform/workspace/common/workspace';
 
 export async function findWindowOnFile(windows: ICodeWindow[], fileUri: URI, localWorkspaceResolver: (workspace: IWorkspaceIdentifier) => Promise<IResolvedWorkspace | undefined>): Promise<ICodeWindow | undefined> {
+
+	const isFileOpen = async (window: ICodeWindow, fileUri: URI): Promise<boolean> => {
+		return new Promise<boolean>(resolve => {
+			window.send('vscode:isFileOpen', { fileUri: fileUri.toString() });
+			ipcMain.once('vscode:isFileOpenResult', (_event, result: boolean) => {
+				resolve(result)
+			});
+		});
+	}
+
+	// First check for windows which have the file already opened
+	for (const window of windows) {
+		if (await isFileOpen(window, fileUri)) {
+			return window;
+		}
+	}
 
 	// First check for windows with workspaces that have a parent folder of the provided path opened
 	for (const window of windows) {
